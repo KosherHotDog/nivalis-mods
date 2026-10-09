@@ -35,6 +35,18 @@ Throws(() => ManagerDemand.Missing(int.MaxValue, 2, 0, 0), "target overflow");
 Throws(() => ManagerDemand.Missing(1, 1, -1, 0), "invalid stock");
 Throws(() => ManagerDemand.Servings(float.NaN, Array.Empty<ManagerDemand.Sale>()), "invalid clock");
 Throws(() => ManagerDemand.Servings(100, new[] { new ManagerDemand.Sale(99, -1, true) }), "invalid receipt");
+Equal(4, ManagerDemand.TopUp(10, 6, 0), "below restock point tops up to threshold");
+Equal(1, ManagerDemand.TopUp(10, 9, 0), "one below restock point");
+Equal(0, ManagerDemand.TopUp(10, 10, 0), "restock point itself is not short");
+Equal(0, ManagerDemand.TopUp(10, 5, 10), "pending deliveries satisfy restock point");
+Equal(0, ManagerDemand.TopUp(0, 0, 0), "zero threshold disables top-up");
+Equal(10, ManagerDemand.TopUp(10, 0, 0), "empty stock");
+Throws(() => ManagerDemand.TopUp(-1, 0, 0), "invalid threshold");
+Throws(() => ManagerDemand.TopUp(10, -1, 0), "invalid top-up stock");
+Equal(4, Math.Max(ManagerDemand.Missing(1, 4, 6, 0), ManagerDemand.TopUp(10, 6, 0)),
+    "live Ramen Noir Chicken: preemptive restock triggers farm supply");
+Equal(0, Math.Max(ManagerDemand.Missing(1, 4, 16, 0), ManagerDemand.TopUp(10, 16, 0)),
+    "stocked ingredient not harvested");
 Equal(false, ManagerDemand.HasRoom(10, 7, 4), "combined crop and seeds exceed room");
 Equal(true, ManagerDemand.HasRoom(10, 7, 3), "exact fit");
 Equal(true, ManagerDemand.HasRoom(null, int.MaxValue, 2), "unlimited capacity");

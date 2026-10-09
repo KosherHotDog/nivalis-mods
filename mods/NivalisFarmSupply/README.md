@@ -7,9 +7,11 @@ An original BepInEx 6 IL2CPP plugin for Nivalis Nights. Managers use ripe crops 
 player-owned greenhouses before their normal vendor purchasing runs. Harvested
 modules are immediately replanted with the same crop, using one actual seed.
 
-Version 0.2.2 sends the whole harvested batch to venue storage until it is full,
-then retains overflow in the player inventory. It also adds separate zero-cost
-farm-supply entries to venue finance details.
+Version 0.3.0 follows the manager's preemptive restocking on Steam build
+25738165: an ingredient is also supplied when venue stock is below the restock
+threshold. Whole harvested batches go to venue storage until it is full, with
+overflow kept in the player inventory, and separate zero-cost farm-supply
+entries appear in venue finance details.
 
 Verified Steam builds are **25653325** and **25673567**. Best-effort update
 compatibility is enabled by default: on an unknown build, the plugin logs its
@@ -20,9 +22,14 @@ it does not verify changed native gameplay rules.
 ## Behavior
 
 - Runs when a player-owned venue's manager purchases recipe ingredients.
-- Uses the game's recipe ingredients and manager demand baseline: five servings
-  without recent sales, otherwise matching sales near the most recent trading
-  hour. Current stock and pending deliveries reduce farm demand.
+- Uses the game's recipe ingredients and two demand rules, taking the larger:
+  - the earlier manager baseline: five servings without recent sales, otherwise
+    matching sales near the most recent trading hour;
+  - the restock point: build 25738165 managers restock any ingredient whose
+    stock plus pending deliveries is below 10, before recipe demand is short.
+    The threshold was observed in live purchases and is configurable.
+
+  Current stock and pending deliveries reduce farm demand under both rules.
 - Uses only ripe matching crops in properties the player owns, including rented
   farms recognized as owned by the game. Other farms remain untouched.
 - Supports any crop whose produce is also its planting material. Shared item
@@ -80,7 +87,12 @@ Configuration is generated at `BepInEx/config/cheeze.nivalis.farmsupply.cfg`:
 
 - `[Supply] Enabled = true`: enable farm supply. Set false to restore the normal
   purchasing route.
-- `[Debug] Verbose = false`: log skipped crops when debugging inventory space.
+- `[Supply] RestockThreshold = 10`: also supply an ingredient when venue stock
+  plus pending deliveries is below this amount. Match it to the manager's
+  restock point; 0 uses only the recipe-demand rule.
+- `[Debug] Verbose = false`: log farm demand per ingredient, skipped crops, and
+  a `Manager purchase:` line per recipe showing stock, pending deliveries and the
+  amount the manager bought. Use it to check the restock point after updates.
 - `[Receipts] ShowFarmSupply = true`: show the separate zero-cost farm entries.
 - `[Compatibility] BestEffortAfterUpdates = true`: attempt loading on unverified
   builds. Set false to allow only the two verified binary hashes.
@@ -129,9 +141,21 @@ checks alone do not establish these game effects.
 
 ## Validation
 
-Version 0.2.2 passes 199 checks covering demand, capacity, item ownership,
-save-bound receipts, removed API members, replant recovery, and shared produce/seed
-identities. Live gameplay on Steam build 25680465 confirmed 20 completed harvest
+Version 0.3.0 passes 209 checks covering demand, restock threshold, capacity,
+item ownership, save-bound receipts, removed API members, replant recovery, and
+shared produce/seed identities. The restock point of 10 comes from 19 traced
+manager recipe passes on Steam build 25738165: every 10-13 item restock started
+at stock plus pending deliveries of 5-9, and no ingredient at exactly 10 was
+restocked. One unexplained single-item increase (Lemons, total 17) was also seen. Live gameplay with 0.3.0 on that build confirmed 10 harvest and replant
+cycles (Lemons, Cherries, Beef, Bok Choy, Chicken, Peppers, Straw Mushrooms, Thyme,
+Wheat), all fully delivered, including ingredients the earlier rule alone would
+have skipped, such as Lemons and Beef at stock 7. The manager then bought none
+of those ingredients. Ingredients without a ripe unit were
+still bought from vendors. That build still uses best-effort compatibility and
+is not on the verified binary whitelist. Finance UI and save/reload were not
+rechecked on 0.3.0.
+
+Version 0.2.2 passed 199 checks. Live gameplay on Steam build 25680465 confirmed 20 completed harvest
 and replant cycles without sourcing errors, including Lemons, Cherries, Blue Cheese,
 and venue capacity overflow. That build still uses best-effort compatibility;
 it has not been added to the verified binary whitelist.

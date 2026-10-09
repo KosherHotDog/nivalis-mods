@@ -28,7 +28,7 @@ Requirements
 - Player inventory room for the temporary harvest and returned seeds. The mod reserves the full yield, up to two seeds and two free stack slots before harvesting.
 - No Farming Animations is optional.
 
-Configuration is generated at BepInEx/config/cheeze.nivalis.farmsupply.cfg. Supply.Enabled controls automatic farm supply, Receipts.ShowFarmSupply controls the new finance entries, Debug.Verbose enables diagnostic logging, and Compatibility.BestEffortAfterUpdates controls attempts on unverified builds (enabled by default). Restart after configuration changes.
+Configuration is generated at BepInEx/config/cheeze.nivalis.farmsupply.cfg. Supply.Enabled controls automatic farm supply, Supply.RestockThreshold (default 10) supplies ingredients below the manager's restock point,Receipts.ShowFarmSupply controls the new finance entries, Debug.Verbose enables diagnostic logging, and Compatibility.BestEffortAfterUpdates controls attempts on unverified builds (enabled by default). Restart after configuration changes.
 
 Farm-supply entries begin with deliveries recorded by this version; earlier harvests are not reconstructed. Keep BepInEx/config/cheeze.nivalis.farmsupply/receipts/ when moving your saves to another installation. Setting Compatibility.BestEffortAfterUpdates to false restricts loading to verified binaries. BepInEx must support the installed game version. Best-effort checks cannot guarantee compatibility with changed native behavior or recover from native crashes.
 

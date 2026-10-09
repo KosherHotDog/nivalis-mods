@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+- Follow the manager's new preemptive restocking (Steam build 25738165): also
+  supply an ingredient when venue stock plus pending deliveries is below
+  `[Supply] RestockThreshold` (default 10, observed live; 0 disables). The
+  earlier recipe-demand rule still applies, so supply never drops below 0.2.2.
+- Verbose logging now records each manager purchase per recipe (stock, pending
+  deliveries, amount bought) and the stock behind each farm demand decision.
+- Add restock threshold checks (209 total checks).
+
 ## 0.2.2
 
 - Support crops whose produce is also their planting material, including Lemons

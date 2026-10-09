@@ -39,6 +39,15 @@ public static class ManagerDemand
         return (int)missing;
     }
 
+    // Later builds also restock any ingredient whose stock plus pending deliveries
+    // is below a fixed level (10 observed live), before recipe demand is short.
+    public static int TopUp(int threshold, int stored, int incoming)
+    {
+        if (threshold < 0 || stored < 0 || incoming < 0)
+            throw new ArgumentOutOfRangeException("Invalid restock data.");
+        return (int)Math.Max(0, (long)threshold - stored - incoming);
+    }
+
     public static bool HasRoom(int? capacity, int count, int needed)
     {
         if (count < 0 || needed < 0 || capacity < 0) return false;
