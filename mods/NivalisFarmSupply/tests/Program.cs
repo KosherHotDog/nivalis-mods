@@ -17,36 +17,46 @@ void Throws(Action action, string name)
     try { action(); } catch (Exception) { return; }
     throw new Exception(name + ": expected refusal");
 }
-Equal(0, ManagerDemand.Servings(100, Array.Empty<ManagerDemand.Sale>()), "no sales");
-Equal(0, ManagerDemand.Servings(100, new[] { new ManagerDemand.Sale(76, 7, true) }), "24 hour boundary");
-Equal(7, ManagerDemand.Servings(100, new[] { new ManagerDemand.Sale(76.1f, 7, true) }), "within day");
-Equal(5, ManagerDemand.Servings(100, new[] {
-    new ManagerDemand.Sale(99, 2, true), new ManagerDemand.Sale(95, 3, true),
-    new ManagerDemand.Sale(94.9f, 20, true), new ManagerDemand.Sale(99, 100, false)
-}), "four hour inclusive window and recipe match");
-Equal(0, ManagerDemand.Servings(100, new[] {
-    new ManagerDemand.Sale(99, 100, false), new ManagerDemand.Sale(94, 7, true)
-}), "latest hour is across all recipes");
-Equal(10, ManagerDemand.Missing(2, 0, 0, 0), "five servings fallback, repeated input");
-Equal(7, ManagerDemand.Missing(2, 7, 4, 3), "stock and deliveries deducted");
-Equal(0, ManagerDemand.Missing(1, 5, 3, 10), "excess pending stock");
-Equal(0, ManagerDemand.Missing(1, 0, 5, 0), "exactly satisfied");
-Throws(() => ManagerDemand.Missing(int.MaxValue, 2, 0, 0), "target overflow");
-Throws(() => ManagerDemand.Missing(1, 1, -1, 0), "invalid stock");
-Throws(() => ManagerDemand.Servings(float.NaN, Array.Empty<ManagerDemand.Sale>()), "invalid clock");
-Throws(() => ManagerDemand.Servings(100, new[] { new ManagerDemand.Sale(99, -1, true) }), "invalid receipt");
-Equal(4, ManagerDemand.TopUp(10, 6, 0), "below restock point tops up to threshold");
-Equal(1, ManagerDemand.TopUp(10, 9, 0), "one below restock point");
-Equal(0, ManagerDemand.TopUp(10, 10, 0), "restock point itself is not short");
-Equal(0, ManagerDemand.TopUp(10, 5, 10), "pending deliveries satisfy restock point");
-Equal(0, ManagerDemand.TopUp(0, 0, 0), "zero threshold disables top-up");
-Equal(10, ManagerDemand.TopUp(10, 0, 0), "empty stock");
-Throws(() => ManagerDemand.TopUp(-1, 0, 0), "invalid threshold");
-Throws(() => ManagerDemand.TopUp(10, -1, 0), "invalid top-up stock");
-Equal(4, Math.Max(ManagerDemand.Missing(1, 4, 6, 0), ManagerDemand.TopUp(10, 6, 0)),
-    "live Ramen Noir Chicken: preemptive restock triggers farm supply");
-Equal(0, Math.Max(ManagerDemand.Missing(1, 4, 16, 0), ManagerDemand.TopUp(10, 16, 0)),
-    "stocked ingredient not harvested");
+Equal(3, ManagerDemand.Shortfall(5, 2, 0), "Normal target below stock");
+Equal(1, ManagerDemand.Shortfall(2, 1, 0), "Lean target short by one");
+Equal(0, ManagerDemand.Shortfall(5, 5, 0), "target exactly met");
+Equal(0, ManagerDemand.Shortfall(5, 9, 0), "stock above target");
+Equal(0, ManagerDemand.Shortfall(10, 4, 6), "pending deliveries meet Extra target");
+Equal(2, ManagerDemand.Shortfall(10, 4, 4), "stock and deliveries deducted");
+Equal(0, ManagerDemand.Shortfall(0, 0, 0), "zero target needs nothing");
+Equal(0, ManagerDemand.Shortfall(2, int.MaxValue, int.MaxValue), "large stock does not overflow");
+Throws(() => ManagerDemand.Shortfall(-1, 0, 0), "invalid target");
+Throws(() => ManagerDemand.Shortfall(5, -1, 0), "invalid stock");
+Throws(() => ManagerDemand.Shortfall(5, 0, -1), "invalid deliveries");
+Equal(false, ManagerDemand.ShouldHarvest(0, 1), "no shortfall never harvests");
+Equal(true, ManagerDemand.ShouldHarvest(1, 1), "default minimum harvests any gap");
+Equal(false, ManagerDemand.ShouldHarvest(2, 3), "gap below minimum left to vendors");
+Equal(true, ManagerDemand.ShouldHarvest(3, 3), "gap at minimum harvests");
+Equal(false, ManagerDemand.ShouldHarvest(ManagerDemand.Shortfall(2, 0, 0), 3),
+    "Lean target below minimum never harvests");
+Throws(() => ManagerDemand.ShouldHarvest(1, 0), "minimum below one rejected");
+Throws(() => ManagerDemand.ShouldHarvest(-1, 1), "negative shortfall rejected");
+// One sale between restock passes keeps a Normal venue only 1 short; vendors
+// refill it each pass, so a minimum of 3 never reaches a harvest.
+int minStock = 5, minHarvests = 0;
+for (int pass = 0; pass < 30; pass++)
+{
+    minStock--;
+    int gap = ManagerDemand.Shortfall(5, minStock, 0);
+    if (ManagerDemand.ShouldHarvest(gap, 3)) { minStock += 12; minHarvests++; }
+    else minStock += gap;
+}
+Equal(0, minHarvests, "slow sales stay below the minimum and go to vendors");
+// A whole-unit harvest overshoots a small target, then blocks further harvests
+// until sales bring stock back under the target: overstock, not a runaway.
+int recentStock = 1, recentHarvests = 0;
+for (int sale = 0; sale < 30; sale++)
+{
+    if (ManagerDemand.Shortfall(2, recentStock, 0) > 0) { recentStock += 12; recentHarvests++; }
+    recentStock--;
+}
+Equal(3, recentHarvests, "Recent Sales minimum target: 30 sales need 3 harvests of 12");
+Equal(true, recentStock <= 13, "stock never exceeds one harvest above the target");
 Equal(false, ManagerDemand.HasRoom(10, 7, 4), "combined crop and seeds exceed room");
 Equal(true, ManagerDemand.HasRoom(10, 7, 3), "exact fit");
 Equal(true, ManagerDemand.HasRoom(null, int.MaxValue, 2), "unlimited capacity");

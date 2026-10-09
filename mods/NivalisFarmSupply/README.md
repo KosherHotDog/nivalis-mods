@@ -7,11 +7,11 @@ An original BepInEx 6 IL2CPP plugin for Nivalis Nights. Managers use ripe crops 
 player-owned greenhouses before their normal vendor purchasing runs. Harvested
 modules are immediately replanted with the same crop, using one actual seed.
 
-Version 0.3.0 follows the manager's preemptive restocking on Steam build
-25738165: an ingredient is also supplied when venue stock is below the restock
-threshold. Whole harvested batches go to venue storage until it is full, with
-overflow kept in the player inventory, and separate zero-cost farm-supply
-entries appear in venue finance details.
+Version 0.4.0 follows each venue's Venue Management Settings, added in game
+Update #4 (Steam build 25828494): farm supply restocks to the same Lean, Normal,
+Extra or Recent Sales target the manager uses. Whole harvested batches go to
+venue storage until it is full, with overflow kept in the player inventory, and
+separate zero-cost farm-supply entries appear in venue finance details.
 
 Verified Steam builds are **25653325** and **25673567**. Best-effort update
 compatibility is enabled by default: on an unknown build, the plugin logs its
@@ -22,14 +22,19 @@ it does not verify changed native gameplay rules.
 ## Behavior
 
 - Runs when a player-owned venue's manager purchases recipe ingredients.
-- Uses the game's recipe ingredients and two demand rules, taking the larger:
-  - the earlier manager baseline: five servings without recent sales, otherwise
-    matching sales near the most recent trading hour;
-  - the restock point: build 25738165 managers restock any ingredient whose
-    stock plus pending deliveries is below 10, before recipe demand is short.
-    The threshold was observed in live purchases and is configurable.
-
-  Current stock and pending deliveries reduce farm demand under both rules.
+- Uses the game's recipe ingredients and the venue's own supply target, read from
+  the game rather than copied: Lean (2), Normal (5, default), Extra (10), or
+  Recent Sales (the meal's sales in the last 4 in-game hours, minimum 2, per
+  recipe). Change it per venue in the venue overview's Venue Management Settings.
+  The shortfall is the target minus current stock and pending deliveries.
+- Harvests only when the shortfall is at least `MinimumShortfall` (default 1).
+  Smaller gaps are left to the manager's vendors, so a whole harvest is not
+  spent on a one-item top-up. Each pass, the manager refills to the target, so
+  gaps are usually only what sold since the last pass: a high minimum can leave
+  slow venues entirely to vendors, and Lean or slow Recent Sales venues (target
+  2) never reach a minimum above 2.
+- Farm supply costs nothing, so it does not use the venue's daily restocking
+  budget and continues after that budget is spent.
 - Uses only ripe matching crops in properties the player owns, including rented
   farms recognized as owned by the game. Other farms remain untouched.
 - Supports any crop whose produce is also its planting material. Shared item
@@ -87,12 +92,20 @@ Configuration is generated at `BepInEx/config/cheeze.nivalis.farmsupply.cfg`:
 
 - `[Supply] Enabled = true`: enable farm supply. Set false to restore the normal
   purchasing route.
-- `[Supply] RestockThreshold = 10`: also supply an ingredient when venue stock
-  plus pending deliveries is below this amount. Match it to the manager's
-  restock point; 0 uses only the recipe-demand rule.
-- `[Debug] Verbose = false`: log farm demand per ingredient, skipped crops, and
-  a `Manager purchase:` line per recipe showing stock, pending deliveries and the
-  amount the manager bought. Use it to check the restock point after updates.
+- `[Supply] MinimumShortfall = 1`: harvest only when a venue is short at least
+  this many of an ingredient. 2 or 3 skips one-item top-ups while still
+  covering larger gaps.
+- `[Debug] Verbose = false`: log farm demand per ingredient (target, stock,
+  pending deliveries, and gaps left below the minimum), skipped crops, and a
+  `Manager purchase:` line per recipe showing the venue's setting, meal target,
+  budget and the amount the manager bought. Use it to check targets after updates.
+
+Saving the file while the game runs applies `Enabled`, `MinimumShortfall` and
+`Verbose` at the next restock, logged as `Settings reloaded`. A configuration
+manager plugin, if installed, can also change them in game.
+
+`[Supply] RestockThreshold` from 0.3.0 is retired and ignored; the in-game supply
+target replaces it. The old line can be deleted.
 - `[Receipts] ShowFarmSupply = true`: show the separate zero-cost farm entries.
 - `[Compatibility] BestEffortAfterUpdates = true`: attempt loading on unverified
   builds. Set false to allow only the two verified binary hashes.
@@ -141,7 +154,20 @@ checks alone do not establish these game effects.
 
 ## Validation
 
-Version 0.3.0 passes 209 checks covering demand, restock threshold, capacity,
+Version 0.4.0 passes 207 checks covering supply-target shortfall, minimum
+shortfall, capacity, item ownership, save-bound receipts, removed API members,
+replant recovery, and shared produce/seed identities. Live gameplay on Steam
+build 25828494 (Update #4) traced 484 manager purchases. Every purchase happened
+only below the venue's target and filled stock exactly to it, for Normal, Extra
+and Recent Sales venues (the last after the 0.4.0 meal-target fix). Over a full
+in-game day, 42 harvest and replant cycles across 15 crops delivered 551 items,
+after which the manager bought none of those ingredients; with
+`MinimumShortfall = 2`, 172 one-item gaps were left to vendors. Live settings
+reload was observed. Lean, an exhausted daily restocking budget, finance UI and
+save/reload were not exercised on 0.4.0. That build uses best-effort
+compatibility and is not on the verified binary whitelist.
+
+Version 0.3.0 passed 209 checks covering demand, restock threshold, capacity,
 item ownership, save-bound receipts, removed API members, replant recovery, and
 shared produce/seed identities. The restock point of 10 comes from 19 traced
 manager recipe passes on Steam build 25738165: every 10-13 item restock started
